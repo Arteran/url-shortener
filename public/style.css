@@ -1,8 +1,17 @@
-body { font-family: system-ui, sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; text-align: center; }
+body { font-family: system-ui, sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; text-align: center; background-color: #e8f5e9; }
 input { width: 70%; padding: 10px; font-size: 16px; border: 1px solid #ccc; border-radius: 4px; }
-button { padding: 10px 20px; font-size: 16px; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 4px; margin-left: 5px; }
+button { padding: 10px 20px; font-size: 16px; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 4px; margin-left: 5px; margin-top: 10px; }
 button:hover { background: #0056b3; }
-#result { margin-top: 20px; padding: 15px; border: 1px solid #eee; border-radius: 4px; display: none; background: #f9f9f9; }
+#result { margin-top: 20px; padding: 15px; border: 1px solid #ccc; border-radius: 4px; display: none; background: #ffffff; }
 .error { color: #d93025; font-weight: bold; }
 a { color: #1a73e8; text-decoration: none; font-weight: bold; }
 a:hover { text-decoration: underline; }
+
+#adminPanel { margin-top: 30px; display: none; background: #ffffff; padding: 20px; border-radius: 4px; border: 1px solid #ccc; text-align: left; }
+#searchInput { width: 100%; margin-bottom: 15px; box-sizing: border-box; }
+#urlList { max-height: 300px; overflow-y: auto; list-style: none; padding: 0; margin: 0; }
+#urlList li { padding: 10px; border-bottom: 1px solid #eee; }
+#urlList li:last-child { border-bottom: none; }
+.url-item-original { font-size: 14px; color: #555; word-break: break-all; margin-bottom: 5px; }
+.url-item-short { font-size: 16px; }
+.url-item-stats { font-size: 12px; color: #888; margin-top: 5px; }
