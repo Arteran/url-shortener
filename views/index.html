@@ -1,5 +1,59 @@
 <!DOCTYPE html>
-<html>
-<head><title>URL Shortener</title></head>
-<body><h1>URL Shortener API is running</h1></body>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>URL Shortener</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; text-align: center; }
+    input { width: 70%; padding: 10px; font-size: 16px; border: 1px solid #ccc; border-radius: 4px; }
+    button { padding: 10px 20px; font-size: 16px; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 4px; margin-left: 5px; }
+    button:hover { background: #0056b3; }
+    #result { margin-top: 20px; padding: 15px; border: 1px solid #eee; border-radius: 4px; display: none; background: #f9f9f9; }
+    .error { color: #d93025; font-weight: bold; }
+    a { color: #1a73e8; text-decoration: none; font-weight: bold; }
+    a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <h1>URL Shortener</h1>
+  <form id="urlForm">
+    <input type="url" id="longUrl" placeholder="https://example.com" required>
+    <button type="submit">Shorten</button>
+  </form>
+  
+  <div id="result"></div>
+
+  <script>
+    document.getElementById('urlForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const url = document.getElementById('longUrl').value;
+      const resDiv = document.getElementById('result');
+      resDiv.style.display = 'block';
+      resDiv.innerHTML = 'Завантаження...';
+
+      try {
+        const response = await fetch('/api/shorturl', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url })
+        });
+        
+        const data = await response.json();
+        
+        if (!response.ok) {
+          resDiv.innerHTML = `<span class="error">Помилка: ${data.error || 'Щось пішло не так'}</span>`;
+          return;
+        }
+
+        resDiv.innerHTML = `
+          <p>Успіх!</p>
+          <p>Короткий URL: <a href="${data.short_url_full}" target="_blank">${data.short_url_full}</a></p>
+        `;
+      } catch (err) {
+        resDiv.innerHTML = `<span class="error">Помилка мережі: ${err.message}</span>`;
+      }
+    });
+  </script>
+</body>
 </html>
