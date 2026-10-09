@@ -83,6 +83,7 @@ export const dbOperations = {
 
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
+app.use("/public", express.static(path.join(process.cwd(), "public")));
 
 async function isValidUrl(urlString) {
   try {
