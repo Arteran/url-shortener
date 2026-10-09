@@ -3,6 +3,9 @@ import dotenv from "dotenv";
 import Database from "better-sqlite3";
 import fs from "fs";
 import path from "path";
+import helmet from "helmet";
+import rateLimit from "express-rate-limit";
+import morgan from "morgan";
 import { nanoid } from "nanoid";
 import dns from "dns";
 import { promisify } from "util";
@@ -11,6 +14,25 @@ const dnsLookupPromise = promisify(dns.lookup);
 dotenv.config();
 
 const app = express();
+
+app.use(helmet());
+
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many requests, please try again later" },
+});
+app.use("/api/", limiter);
+
+const logsDir = path.join(process.cwd(), "logs");
+if (!fs.existsSync(logsDir)) {
+  fs.mkdirSync(logsDir);
+}
+const accessLogStream = fs.createWriteStream(path.join(logsDir, "access.log"), { flags: "a" });
+app.use(morgan("combined", { stream: accessLogStream }));
+app.use(morgan("dev"));
 
 let db;
 try {
@@ -140,6 +162,35 @@ app.get("/api/admin/urls", async (req, res, next) => {
   } catch (error) {
     next(error);
   }
+});
+
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).json({
+    error: "Something went wrong!",
+    message: process.env.NODE_ENV === "development" ? err.message : undefined,
+  });
+});
+
+app.get("/health", (req, res) => {
+  res.status(200).json({ status: "ok" });
+});
+
+process.on("SIGINT", () => {
+  console.log("Closing database connection...");
+  db.close();
+  process.exit(0);
+});
+process.on("SIGTERM", () => {
+  console.log("Closing database connection...");
+  db.close();
+  process.exit(0);
+});
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+  console.log(`Environment: ${process.env.NODE_ENV || "development"}`);
 });
 
 export { app, db };
