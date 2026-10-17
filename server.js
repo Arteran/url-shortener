@@ -8,6 +8,7 @@ import rateLimit from "express-rate-limit";
 import morgan from "morgan";
 import { nanoid } from "nanoid";
 import dns from "dns";
+import net from "net";
 import { promisify } from "util";
 const dnsLookupPromise = promisify(dns.lookup);
 
@@ -16,8 +17,16 @@ dotenv.config();
 const app = express();
 
 app.use(helmet({
-  contentSecurityPolicy: false,
-  hsts: false
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'"],
+      styleSrc: ["'self'"],
+      imgSrc: ["'self'"],
+      connectSrc: ["'self'"],
+    },
+  },
+  hsts: process.env.NODE_ENV === "production",
 }));
 
 const limiter = rateLimit({
@@ -77,10 +86,6 @@ export const dbOperations = {
   getUrlStats: (shortUrl) => {
     const stmt = db.prepare("SELECT * FROM urls WHERE short_url = ?");
     return stmt.get(shortUrl);
-  },
-  getAllUrls: (limit = 100, offset = 0) => {
-    const stmt = db.prepare("SELECT * FROM urls ORDER BY created_at DESC LIMIT ? OFFSET ?");
-    return stmt.all(limit, offset);
   }
 };
 
@@ -88,11 +93,52 @@ app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
 app.use("/public", express.static(path.join(process.cwd(), "public")));
 
+function isPrivateIp(ip) {
+  if (net.isIPv4(ip)) {
+    const parts = ip.split(".").map(Number);
+    const [a, b] = parts;
+    if (a === 0) return true; // 0.0.0.0/8
+    if (a === 10) return true; // 10.0.0.0/8
+    if (a === 127) return true; // 127.0.0.0/8 loopback
+    if (a === 169 && b === 254) return true; // 169.254.0.0/16 link-local
+    if (a === 172 && b >= 16 && b <= 31) return true; // 172.16.0.0/12
+    if (a === 192 && b === 168) return true; // 192.168.0.0/16
+    if (a === 100 && b >= 64 && b <= 127) return true; // CGNAT
+    if (a >= 224) return true; // Multicast / reserved
+    return false;
+  }
+  if (net.isIPv6(ip)) {
+    const normalized = ip.toLowerCase();
+    if (normalized === "::1" || normalized === "::") return true;
+    if (normalized.startsWith("fc") || normalized.startsWith("fd")) return true;
+    if (normalized.startsWith("fe80:")) return true;
+    if (normalized.startsWith("::ffff:")) {
+      return isPrivateIp(normalized.substring(7));
+    }
+    return false;
+  }
+  return true;
+}
+
 async function isValidUrl(urlString) {
   try {
     const url = new URL(urlString);
     if (url.protocol !== "http:" && url.protocol !== "https:") return false;
-    await dnsLookupPromise(url.hostname);
+    const hostname = url.hostname.toLowerCase();
+    if (
+      hostname === "localhost" ||
+      hostname.endsWith(".localhost") ||
+      hostname.endsWith(".local")
+    ) {
+      return false;
+    }
+    const lookup = await dnsLookupPromise(hostname, { all: true });
+    if (!lookup || lookup.length === 0) return false;
+    for (const record of lookup) {
+      if (isPrivateIp(record.address)) {
+        return false;
+      }
+    }
     return true;
   } catch {
     return false;
@@ -151,18 +197,6 @@ app.get("/api/stats/:shortUrl", async (req, res, next) => {
       created_at: stats.created_at,
       hits: stats.hits,
     });
-  } catch (error) {
-    next(error);
-  }
-});
-
-app.get("/api/admin/urls", async (req, res, next) => {
-  try {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 20;
-    const offset = (page - 1) * limit;
-    const urls = dbOperations.getAllUrls(limit, offset);
-    res.json({ urls });
   } catch (error) {
     next(error);
   }
